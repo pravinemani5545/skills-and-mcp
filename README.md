@@ -4,7 +4,7 @@ My personal collection of [Claude Code](https://claude.com/claude-code) skills �
 
 ## Repo layout
 
-Standalone skills sit at the repo root. **Bundles** — groups of related skills designed to work together — live in their own subfolder. Skills install flat into `~/.claude/skills/` regardless of where they live in the repo; the folder is purely for organization here.
+Standalone skills sit at the repo root. **Bundles** — groups of related skills designed to work together — live in their own subfolder. **External plugins** — multi-directory packages with their own install scripts — are documented here as reference docs rather than vendored in. Skills install flat into `~/.claude/skills/` regardless of where they live in the repo; the folder is purely for organization here.
 
 ```
 .
@@ -12,6 +12,7 @@ Standalone skills sit at the repo root. **Bundles** — groups of related skills
 ├── design-system.md         # standalone skill
 ├── growth-sprint.md         # standalone skill
 ├── claude-skills-guide.md   # reference doc
+├── claude-seo.md            # reference doc for external plugin
 └── cpr/                     # bundle: compress + preserve + resume
     ├── compress.md
     ├── preserve.md
@@ -28,9 +29,10 @@ Standalone skills sit at the repo root. **Bundles** — groups of related skills
 | [`compress`](cpr/compress.md) | [`cpr`](cpr/) | External — [EliaAlberti/cpr](https://github.com/EliaAlberti/cpr-compress-preserve-resume) | Prepares preservation notes before `/compact` and saves the full session to searchable logs. |
 | [`preserve`](cpr/preserve.md) | [`cpr`](cpr/) | External — [EliaAlberti/cpr](https://github.com/EliaAlberti/cpr-compress-preserve-resume) | Extracts the durable lessons from a session and writes them to `CLAUDE.md` so future conversations inherit them. |
 | [`resume`](cpr/resume.md) | [`cpr`](cpr/) | External — [EliaAlberti/cpr](https://github.com/EliaAlberti/cpr-compress-preserve-resume) | Loads context at the start of a session from `CLAUDE.md` + recent session logs. |
+| [`/seo` and 25 sub-skills](claude-seo.md) | — | External plugin — [AgriciDaniel/claude-seo](https://github.com/AgriciDaniel/claude-seo) | Comprehensive SEO toolkit: full site audits, single-page analysis, technical SEO, schema markup, content quality (E-E-A-T), GEO (AI Overviews / ChatGPT / Perplexity), local SEO, image optimization, semantic topic clustering, SEO drift monitoring, Google API integration (Search Console / PageSpeed / CrUX / GA4). Ships 25 sub-skills + 18 sub-agents. See [`claude-seo.md`](claude-seo.md) for install + usage. |
 | [`claude-skills-guide`](claude-skills-guide.md) | — | Reference doc | Not a skill — a guide explaining how Claude Code skills work and how to create your own. |
 
-> **Source legend** — *Built*: I wrote this skill. *External*: adopted from someone else's published work (lightly modified or used as-is) — credit linked. *Reference*: documentation, not a runnable skill.
+> **Source legend** — *Built*: I wrote this skill. *External*: adopted from someone else's single-file skill (lightly modified or used as-is) — credit linked. *External plugin*: a multi-file Claude Code plugin installed via its own script or the `/plugin marketplace` system, documented here as a reference rather than vendored. *Reference*: documentation, not a runnable skill.
 
 ## Install
 
@@ -47,6 +49,7 @@ mkdir -p ~/.claude/skills
 find . -name "*.md" \
   -not -name "README.md" \
   -not -name "claude-skills-guide.md" \
+  -not -name "claude-seo.md" \
   -exec cp {} ~/.claude/skills/ \;
 ```
 
@@ -77,8 +80,25 @@ mkdir -p ~/.claude/skills
 find . -name "*.md" \
   -not -name "README.md" \
   -not -name "claude-skills-guide.md" \
+  -not -name "claude-seo.md" \
   -exec sh -c 'ln -sf "$(pwd)/$1" ~/.claude/skills/"$(basename "$1")"' _ {} \;
 ```
+
+### Install an external plugin (claude-seo)
+
+`claude-seo` is a multi-file plugin and does **not** follow the single-file install pattern above. Use either of these:
+
+```bash
+# Recommended — from inside Claude Code (1.0.33+)
+/plugin marketplace add AgriciDaniel/claude-seo
+/plugin install claude-seo@agricidaniel-seo
+
+# Or — manual install via the upstream script
+git clone --depth 1 https://github.com/AgriciDaniel/claude-seo.git
+bash claude-seo/install.sh
+```
+
+The manual script creates a Python venv at `~/.claude/skills/seo/.venv`, downloads Playwright Chromium (~260 MB), and writes 25 sub-skill directories + 18 agent files into `~/.claude/skills/` and `~/.claude/agents/`. See [`claude-seo.md`](claude-seo.md) for full details and usage.
 
 ## Use
 
@@ -90,6 +110,8 @@ Once installed, invoke a skill with a slash command:
 /compress
 /preserve
 /resume
+/seo audit https://example.com
+/seo geo https://example.com
 ```
 
 You can also chain skills in one prompt — the first loads its context, then the next runs:
