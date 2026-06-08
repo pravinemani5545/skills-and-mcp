@@ -1,10 +1,10 @@
-# personalClaudeSkills
+# Skills & MCP
 
-My personal collection of [Claude Code](https://claude.com/claude-code) skills — a mix of ones I built from scratch and external ones I've adopted into my workflow. Each skill is a single markdown file that gets dropped into `~/.claude/skills/` and invoked as a slash command.
+My personal collection of [Claude Code](https://claude.com/claude-code) extensions — **skills** (single-file slash commands) and **MCP servers** (local projects Claude Code connects to as tools). A mix of ones I built from scratch and external ones I've adopted into my workflow.
 
 ## Repo layout
 
-Standalone skills sit at the repo root. **Bundles** — groups of related skills designed to work together — live in their own subfolder. **External plugins** — multi-directory packages with their own install scripts — are documented here as reference docs rather than vendored in. Skills install flat into `~/.claude/skills/` regardless of where they live in the repo; the folder is purely for organization here.
+Standalone skills sit at the repo root. **Bundles** — groups of related skills designed to work together — live in their own subfolder. **External plugins** — multi-directory packages with their own install scripts — are documented here as reference docs rather than vendored in. Skills install flat into `~/.claude/skills/` regardless of where they live in the repo; the folder is purely for organization. **MCP servers** are full local projects (not single files) and live under `mcp/`; each has its own README, build step, and `claude mcp add` registration.
 
 ```
 .
@@ -13,10 +13,12 @@ Standalone skills sit at the repo root. **Bundles** — groups of related skills
 ├── growth-sprint.md         # standalone skill
 ├── claude-skills-guide.md   # reference doc
 ├── claude-seo.md            # reference doc for external plugin
-└── cpr/                     # bundle: compress + preserve + resume
-    ├── compress.md
-    ├── preserve.md
-    └── resume.md
+├── cpr/                     # bundle: compress + preserve + resume
+│   ├── compress.md
+│   ├── preserve.md
+│   └── resume.md
+└── mcp/                     # MCP servers (local projects, own install)
+    └── gmail-organizer-mcp/ # multi-account Gmail organizer
 ```
 
 ## What's in here
@@ -34,6 +36,14 @@ Standalone skills sit at the repo root. **Bundles** — groups of related skills
 
 > **Source legend** — *Built*: I wrote this skill. *External*: adopted from someone else's single-file skill (lightly modified or used as-is) — credit linked. *External plugin*: a multi-file Claude Code plugin installed via its own script or the `/plugin marketplace` system, documented here as a reference rather than vendored. *Reference*: documentation, not a runnable skill.
 
+## MCP servers
+
+Unlike skills, these are full local projects Claude Code connects to over MCP. Each lives under `mcp/<name>/` with its own README, build, and `claude mcp add` step — they are **not** dropped into `~/.claude/skills/`.
+
+| Server | Source | What it does |
+|---|---|---|
+| [`gmail-organizer-mcp`](mcp/gmail-organizer-mcp/) | Built | Lets Claude Code read and organize **multiple Gmail accounts** — Claude's built-in Gmail connector is single-account only. Account-aware tools for search, label, archive, mark-read, and server-side filters across every connected inbox (`account:"all"` fans out). Read + organize only — **no delete**. OAuth refresh tokens live in Bitwarden, never on disk. TypeScript, stdio, [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk). Full setup in its [README](mcp/gmail-organizer-mcp/README.md). |
+
 ## Install
 
 Skills live in `~/.claude/skills/`. Claude Code picks them up automatically — no restart needed.
@@ -43,8 +53,8 @@ Skills live in `~/.claude/skills/`. Claude Code picks them up automatically — 
 Flattens all skills (root + bundles) into `~/.claude/skills/`, skipping the README and the reference guide:
 
 ```bash
-git clone https://github.com/pravinemani5545/personalClaudeSkills.git
-cd personalClaudeSkills
+git clone https://github.com/pravinemani5545/skills-and-mcp.git
+cd skills-and-mcp
 mkdir -p ~/.claude/skills
 find . -name "*.md" \
   -not -name "README.md" \
@@ -64,11 +74,11 @@ cp cpr/*.md ~/.claude/skills/
 ```bash
 # standalone
 curl -o ~/.claude/skills/artifact.md \
-  https://raw.githubusercontent.com/pravinemani5545/personalClaudeSkills/main/artifact.md
+  https://raw.githubusercontent.com/pravinemani5545/skills-and-mcp/main/artifact.md
 
 # from a bundle
 curl -o ~/.claude/skills/compress.md \
-  https://raw.githubusercontent.com/pravinemani5545/personalClaudeSkills/main/cpr/compress.md
+  https://raw.githubusercontent.com/pravinemani5545/skills-and-mcp/main/cpr/compress.md
 ```
 
 ### Symlink instead (recommended for active development)
