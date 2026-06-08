@@ -91,12 +91,18 @@ Organizing policy (label taxonomy, what gets archived) lives in [`RULES.md`](./R
 |---|---|
 | `list_accounts` | Connected accounts |
 | `search` | Gmail query → message summaries (`account:"all"` fans out) |
-| `get_thread` | Full thread for deeper triage |
+| `get_thread` | Full thread for deeper triage (content fenced as untrusted) |
+| `get_message` | One message with a decoded plain-text body (fenced as untrusted) |
 | `list_labels` | Labels for an account |
 | `apply_label` / `remove_label` | Label messages by ids or query (creates label if missing) |
 | `archive` | Remove from inbox (no delete) |
-| `mark_read` | Remove UNREAD |
+| `mark_read` / `mark_unread` | Toggle UNREAD by ids or query |
+| `star` | Star/unstar by ids or query |
 | `create_filter` | Server-side rule for future mail (label / archive / both) |
+| `list_filters` / `delete_filter` | Inspect and remove server-side filters |
+| `delete_label` | Remove a user label (messages kept; refuses system labels) |
+
+All API calls retry on rate-limit/5xx with backoff; bulk reads use bounded concurrency. Id-based tools (`get_thread`, `get_message`, `delete_filter`) require a single account.
 
 ## Scheduled triage (unattended)
 

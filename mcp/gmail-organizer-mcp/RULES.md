@@ -19,6 +19,23 @@ labels (`Parent/Child`) for hierarchy.
 | `Clients/<name>` | Per-client consulting threads. Keep recent in inbox. |
 | `Notifications` | Automated app/system notifications. Archive. |
 
+## Bulk list buckets (one-pass sorting)
+
+For sorting a whole mailbox into broad lists fast, apply these labels by query
+(`apply_label` with `query:`, no per-message reading needed). Labels are additive —
+a message can land in more than one list. Non-destructive: labeling only.
+
+| List | Query |
+|---|---|
+| `Subscriptions` | `category:promotions` |
+| `Billing` | `subject:(receipt OR invoice OR payment OR "order confirmation" OR billing OR renewal OR refund) OR from:(stripe OR paypal OR billing OR invoice OR receipts)` |
+| `Finance` | `from:(interactivebrokers OR wealthsimple OR coinbase OR robinhood OR fidelity OR chase OR rbc OR td OR amex OR "capital one" OR scotiabank)` |
+| `Social` | `category:social` |
+| `Updates` | `category:updates` |
+| `Shopping` | `from:(amazon OR ebay OR shopify OR aliexpress OR etsy OR walmart) OR subject:(shipped OR "your order" OR delivery OR "tracking number")` |
+| `Travel` | `subject:(flight OR booking OR reservation OR itinerary OR hotel) OR from:(booking.com OR airbnb OR expedia OR aircanada OR uber OR lyft)` |
+| `Jobs` | `from:(linkedin OR indeed OR glassdoor OR ziprecruiter) OR subject:(hiring OR "job alert" OR "your application")` |
+
 ## Triage procedure (interactive or scheduled)
 
 For each account (or `account:"all"`):
