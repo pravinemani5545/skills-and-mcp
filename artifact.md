@@ -7,6 +7,10 @@ description: Build a self-contained, browser-renderable artifact (React+Tailwind
 
 Build a single self-contained HTML file that renders in the browser, save it under `~/Developer/artifacts/`, and open it.
 
+## Requirements
+
+No MCP servers. Uses the macOS `open` command (built-in) to launch the browser. Rendered artifacts load their libraries (React, Tailwind, Chart.js, etc.) from CDNs, so *viewing* them needs internet.
+
 ## Steps
 
 1. **Pick the artifact type** from the user's request:
