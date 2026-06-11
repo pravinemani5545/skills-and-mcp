@@ -7,6 +7,11 @@ description: Project-agnostic design-system application skill. Runs a guided int
 
 Apply a high-fidelity design system to any project. Not locked to Terminal DS — that's just the default preset. The skill runs a guided interview first, picks the right starting point, then executes.
 
+## Requirements
+
+- **Playwright MCP** — powers the visual verification loop (`browser_take_screenshot`, `browser_resize` to 375px). The interview and build steps work without it; verification gets skipped.
+- The target project's own dev server (verification screenshots a locally served page).
+
 ## Reference materials
 
 Always read these first:
