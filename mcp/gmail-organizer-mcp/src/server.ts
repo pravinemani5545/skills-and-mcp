@@ -3,7 +3,8 @@
  * gmail-organizer-mcp — local MCP server exposing account-aware Gmail tools so
  * Claude Code can read and organize multiple Gmail accounts.
  *
- * Secrets come from Bitwarden at startup (BW_SESSION required). No deletes.
+ * Secrets load lazily from Bitwarden on the first tool call, so the server
+ * connects even while the vault is locked. No permanent mail deletes.
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -25,6 +26,23 @@ function clientFor(account: AccountRecord): GmailClient {
     clientCache.set(account.email, c);
   }
   return c;
+}
+
+let loaded: Promise<void> | null = null;
+/** Memoized lazy secret load. Lets the server connect while the vault is locked;
+ *  a locked vault surfaces as a per-call error and is retried on the next call. */
+function ensureLoaded(): Promise<void> {
+  if (!loaded) {
+    loaded = (async () => {
+      await ensureUnlocked().catch(() => {}); // unattended path; ok if BW_SESSION already set
+      oauthApp = await loadOAuthApp();
+      accounts = await loadAccounts();
+    })().catch((err) => {
+      loaded = null; // vault may get unlocked later — retry on next call
+      throw err;
+    });
+  }
+  return loaded;
 }
 
 function text(s: string) {
@@ -67,7 +85,19 @@ const accountArg = z
   .string()
   .describe('Account email or alias, or "all" to fan out across every connected account.');
 
-server.registerTool(
+/** server.registerTool, plus the lazy secret load before every handler. */
+function tool(name: string, meta: any, handler: (args: any) => Promise<any>) {
+  server.registerTool(name, meta, (async (args: any) => {
+    try {
+      await ensureLoaded();
+    } catch (e) {
+      return errorResult(e);
+    }
+    return handler(args);
+  }) as any);
+}
+
+tool(
   "list_accounts",
   {
     description: "List the connected Gmail accounts this server can organize.",
@@ -81,7 +111,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+tool(
   "search",
   {
     description:
@@ -112,7 +142,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+tool(
   "get_thread",
   {
     description: "Get the full content of a thread for deeper triage.",
@@ -129,7 +159,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+tool(
   "list_labels",
   {
     description: "List all labels for an account.",
@@ -156,7 +186,7 @@ const idsOrQuery = {
   max: z.number().int().positive().max(HARD_MAX).optional().describe("Cap when using query (default 100)."),
 };
 
-server.registerTool(
+tool(
   "apply_label",
   {
     description: "Apply a label (created if missing) to messages selected by ids or query. Returns count.",
@@ -179,7 +209,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+tool(
   "remove_label",
   {
     description: "Remove a label from messages selected by ids or query. Returns count.",
@@ -202,7 +232,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+tool(
   "archive",
   {
     description: "Archive messages (remove INBOX label) selected by ids or query. Does NOT delete. Returns count.",
@@ -225,7 +255,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+tool(
   "mark_read",
   {
     description: "Mark messages read (remove UNREAD) selected by ids or query. Returns count.",
@@ -248,7 +278,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+tool(
   "mark_unread",
   {
     description: "Mark messages unread (add UNREAD) selected by ids or query. Returns count.",
@@ -270,7 +300,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+tool(
   "star",
   {
     description: "Star (true) or unstar (false) messages selected by ids or query. Returns count.",
@@ -292,7 +322,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+tool(
   "get_message",
   {
     description: "Get one message with a decoded plain-text body (for reading/classifying).",
@@ -311,7 +341,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+tool(
   "create_filter",
   {
     description:
@@ -350,7 +380,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+tool(
   "list_filters",
   {
     description: "List existing server-side filters (id, criteria, action) for an account.",
@@ -375,7 +405,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+tool(
   "delete_filter",
   {
     description: "Delete a server-side filter by its id (from list_filters).",
@@ -392,7 +422,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+tool(
   "delete_label",
   {
     description: "Delete a user label by name (messages keep, just lose the label). Refuses system labels.",
@@ -414,12 +444,14 @@ server.registerTool(
 );
 
 async function main() {
-  await ensureUnlocked().catch(() => {}); // unattended path; ok if BW_SESSION already set
-  oauthApp = await loadOAuthApp();
-  accounts = await loadAccounts();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`gmail-organizer-mcp ready — ${accounts.length} account(s) loaded.`);
+  // Warm the secret cache in the background; a locked vault is not fatal here —
+  // it surfaces per tool call and retries once the vault is unlocked.
+  ensureLoaded().then(
+    () => console.error(`gmail-organizer-mcp ready — ${accounts.length} account(s) loaded.`),
+    (err) => console.error(`gmail-organizer-mcp ready — secrets not loaded yet (${err?.message ?? err}); will retry on first tool call.`),
+  );
 }
 
 main().catch((err) => {
