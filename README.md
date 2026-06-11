@@ -4,7 +4,7 @@ My personal collection of [Claude Code](https://claude.com/claude-code) extensio
 
 ## Repo layout
 
-Standalone skills sit at the repo root. **Bundles** — groups of related skills designed to work together — live in their own subfolder. **External plugins** — multi-directory packages with their own install scripts — are documented here as reference docs rather than vendored in. Each skill is stored as a single `.md` here for easy browsing, but installs as `~/.claude/skills/<name>/SKILL.md` — Claude Code's skill-directory convention (flat `.md` files in `~/.claude/skills/` are NOT discovered). Bundle folders are purely for repo organization. **MCP servers** are full local projects (not single files) and live under `mcp/`; each has its own README, build step, and `claude mcp add` registration.
+Standalone skills sit at the repo root. **Bundles** — groups of related skills designed to work together — live in their own subfolder. **External plugins** — multi-directory packages with their own install scripts — are documented here as reference docs rather than vendored in. Each skill is stored as a single `.md` here for easy browsing — except skills that ship supporting scripts (like `youtube-study/`), which are stored as full skill directories. Either way they install as `~/.claude/skills/<name>/SKILL.md` — Claude Code's skill-directory convention (flat `.md` files in `~/.claude/skills/` are NOT discovered). Bundle folders are purely for repo organization. **MCP servers** are full local projects (not single files) and live under `mcp/`; each has its own README, build step, and `claude mcp add` registration.
 
 ```
 .
@@ -18,6 +18,9 @@ Standalone skills sit at the repo root. **Bundles** — groups of related skills
 │   ├── compress.md
 │   ├── preserve.md
 │   └── resume.md
+├── youtube-study/           # standalone skill (directory — ships a helper script)
+│   ├── SKILL.md
+│   └── scripts/clean_transcript.py
 └── mcp/                     # MCP servers (local projects, own install)
     └── gmail-organizer-mcp/ # multi-account Gmail organizer
 ```
@@ -29,6 +32,7 @@ Standalone skills sit at the repo root. **Bundles** — groups of related skills
 | [`artifact`](artifact.md) | — | Built | None (macOS `open`) | Generates a self-contained HTML artifact (React + Tailwind, vanilla HTML/JS, SVG, or markdown), saves it to `~/Developer/artifacts/`, and auto-opens it in the browser. Closes the "artifacts gap" between Claude Code and the Claude app. |
 | [`growth-sprint`](growth-sprint.md) | — | Built | git CLI; `code` + Obsidian vault optional | Audits a project's current state (git history, strategy docs, tech stack, explicit exclusions) via an Explore agent, pauses for confirmation, then drafts a daily-execution sprint plan — 30/60/90 days — with 5 concrete tasks per day, 6-phase structure, standing daily habits, weekly cadence, and realistic outcomes. Saves to `~/Desktop/` and mirrors to Obsidian vault. |
 | [`design-system`](design-system.md) | — | Built | Playwright MCP (verification step) | Project-agnostic design-system application. Runs a guided interview (accent color, vibe, theme, motion intensity, exclusions), pauses for confirmation, then applies patterns to any site — builds new pages or retrofits existing ones, distributing glow colors algorithmically, applying chrome patterns, doing a voice pass on copy. Companion reference: `~/Desktop/Terminal-DS-Implementation-Guide.md`. |
+| [`youtube-study`](youtube-study/SKILL.md) | — | Built | `yt-dlp` + `ffmpeg` (Homebrew); optional `mlx-whisper` (pipx) + `GEMINI_API_KEY` for fallback tiers | Studies a YouTube video from its URL: pulls captions, metadata, chapters, and top comments via yt-dlp (local/residential IP — no MCP scrapers), dedupes rolling auto-captions into a compact timestamped transcript (~4x token savings), falls back to local Whisper when no captions exist and to Gemini's URL-based video API for visual questions. Caches per video in `~/.cache/youtube-study/`. |
 | [`mimic-design`](mimic-design.md) | — | Built | **Playwright MCP** | Reverse-engineers a reference site's design from a URL: Playwright capture (desktop/mobile/scroll/hover states), CSSOM token extraction (palette, typography, easings, keyframes — with a curl fallback for CORS-blocked stylesheets), an honest design read, then a numbered steal/adapt/skip/do-better menu. Implements only the items the user picks — never edits files before the menu reply. |
 | [`compress`](cpr/compress.md) | [`cpr`](cpr/) | External — [EliaAlberti/cpr](https://github.com/EliaAlberti/cpr-compress-preserve-resume) | None | Prepares preservation notes before `/compact` and saves the full session to searchable logs. |
 | [`preserve`](cpr/preserve.md) | [`cpr`](cpr/) | External — [EliaAlberti/cpr](https://github.com/EliaAlberti/cpr-compress-preserve-resume) | None | Extracts the durable lessons from a session and writes them to `CLAUDE.md` so future conversations inherit them. |
@@ -61,6 +65,8 @@ for f in *.md cpr/*.md; do
   mkdir -p ~/.claude/skills/"$name"
   cp "$f" ~/.claude/skills/"$name"/SKILL.md
 done
+# directory skills copy as-is:
+cp -R youtube-study ~/.claude/skills/
 ```
 
 ### Install a single bundle
@@ -120,6 +126,7 @@ Once installed, invoke a skill with a slash command:
 /artifact pomodoro timer with start/pause
 /growth-sprint aiopsforge 60
 /mimic-design https://linear.app
+/youtube-study https://youtu.be/zjkBMFhNj_g what are the key arguments?
 /compress
 /preserve
 /resume
