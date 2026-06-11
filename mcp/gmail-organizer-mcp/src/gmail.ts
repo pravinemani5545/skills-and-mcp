@@ -233,6 +233,16 @@ export class GmailClient {
     return this.batchModify(ids, [], ["INBOX"]);
   }
 
+  /** Move messages to Trash (recoverable ~30 days, then auto-purged). NOT a hard delete. */
+  async trash(ids: string[]): Promise<number> {
+    return this.batchModify(ids, ["TRASH"], []);
+  }
+
+  /** Restore messages from Trash. */
+  async untrash(ids: string[]): Promise<number> {
+    return this.batchModify(ids, [], ["TRASH"]);
+  }
+
   /** Mark messages read (remove UNREAD). */
   async markRead(ids: string[]): Promise<number> {
     return this.batchModify(ids, [], ["UNREAD"]);
