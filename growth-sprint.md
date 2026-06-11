@@ -7,6 +7,12 @@ description: Create a daily-execution growth sprint plan for a project — 60 da
 
 Produce a daily-execution sprint plan for a project. This is NOT a generic "10 things to do" — it's an audit-first, phase-structured, daily-task-level plan grounded in the project's actual current state, stack, and explicit exclusions.
 
+## Requirements
+
+- **git CLI** — the audit phase reads `git log`, branch, and working-tree state.
+- Optional: VS Code `code` CLI (auto-opens the finished plan) and an Obsidian vault at `~/obsidian/pravinemaniOS/` (mirror copy — skipped if absent).
+- No MCP servers.
+
 ## Inputs (parse from `args`)
 
 - **Project name** (required) — kebab-case slug (e.g., `aiopsforge`, `cisnet`). If user says "this project", default to the current working directory's basename.
