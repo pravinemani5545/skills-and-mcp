@@ -11,6 +11,11 @@ Reverse-engineer a reference site's design DNA from a URL: capture it visually (
 
 **Core principle: screenshots tell you how it feels; the CSSOM tells you exactly how it's built.** Judge from pixels, implement from measured values. Never eyeball a color, easing, or letter-spacing from a screenshot — extract it.
 
+## Requirements
+
+- **Playwright MCP** (required) — navigation, resizing, screenshots, hover states, and the CSSOM extraction all run through it. Install if missing: `claude mcp add -s user playwright -- npx @playwright/mcp@latest`.
+- **curl** (macOS built-in) — fallback fetch for CORS-blocked stylesheets in Phase 2.
+
 ## The Menu Gate (iron rule)
 
 NEVER change any file before the user has chosen from the Phase 4 menu. Present menu → STOP the turn → wait for picks.
