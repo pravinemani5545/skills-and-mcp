@@ -25,7 +25,7 @@ Standalone skills sit at the repo root. **Bundles** — groups of related skills
 ## What's in here
 
 | Skill | Bundle | Source | Requires | What it does |
-|---|---|---|---||---|
+|---|---|---|---|---|---|
 | [`artifact`](artifact.md) | — | Built | None (macOS `open`) | Generates a self-contained HTML artifact (React + Tailwind, vanilla HTML/JS, SVG, or markdown), saves it to `~/Developer/artifacts/`, and auto-opens it in the browser. Closes the "artifacts gap" between Claude Code and the Claude app. |
 | [`growth-sprint`](growth-sprint.md) | — | Built | git CLI; `code` + Obsidian vault optional | Audits a project's current state (git history, strategy docs, tech stack, explicit exclusions) via an Explore agent, pauses for confirmation, then drafts a daily-execution sprint plan — 30/60/90 days — with 5 concrete tasks per day, 6-phase structure, standing daily habits, weekly cadence, and realistic outcomes. Saves to `~/Desktop/` and mirrors to Obsidian vault. |
 | [`design-system`](design-system.md) | — | Built | Playwright MCP (verification step) | Project-agnostic design-system application. Runs a guided interview (accent color, vibe, theme, motion intensity, exclusions), pauses for confirmation, then applies patterns to any site — builds new pages or retrofits existing ones, distributing glow colors algorithmically, applying chrome patterns, doing a voice pass on copy. Companion reference: `~/Desktop/Terminal-DS-Implementation-Guide.md`. |
