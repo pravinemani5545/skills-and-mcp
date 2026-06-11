@@ -62,17 +62,21 @@ Bitwarden item `Gmail Token: <email>`.
 
 ### 4. Register with Claude Code
 
+If you got this code from the `skills-and-mcp` repo (vendored under `mcp/gmail-organizer-mcp/`),
+first copy it to a working location (e.g. `~/Developer/projects/active/gmail-organizer-mcp`),
+run `pnpm install && pnpm build`, then register with the path you chose.
+
 ```bash
 claude mcp add -s user gmail-organizer \
-  --env BW_SESSION=$BW_SESSION \
   -- node ~/Developer/projects/active/gmail-organizer-mcp/dist/server.js
 
 claude mcp list   # should show gmail-organizer: connected
 ```
 
-> `BW_SESSION` keys expire when the vault locks. If the server reports the vault is locked,
-> re-unlock (`export BW_SESSION=$(bw unlock --raw)`) and re-add, or use the `BW_PASSWORD`
-> path below.
+> No `BW_SESSION` needed in the registration: secrets load lazily on the first tool call.
+> While the vault is locked, the server still connects and tools return a "vault locked"
+> error — run `bw unlock` (or use the `BW_PASSWORD` path below) and the next call succeeds,
+> no re-registration or restart required.
 
 ## Usage
 
