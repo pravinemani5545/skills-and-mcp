@@ -1,10 +1,10 @@
 # Skills & MCP
 
-My personal collection of [Claude Code](https://claude.com/claude-code) extensions — **skills** (single-file slash commands) and **MCP servers** (local projects Claude Code connects to as tools). A mix of ones I built from scratch and external ones I've adopted into my workflow.
+My personal collection of [Claude Code](https://claude.com/claude-code) extensions — **skills** (one `.md` per skill, installed as skill directories) and **MCP servers** (local projects Claude Code connects to as tools). A mix of ones I built from scratch and external ones I've adopted into my workflow.
 
 ## Repo layout
 
-Standalone skills sit at the repo root. **Bundles** — groups of related skills designed to work together — live in their own subfolder. **External plugins** — multi-directory packages with their own install scripts — are documented here as reference docs rather than vendored in. Skills install flat into `~/.claude/skills/` regardless of where they live in the repo; the folder is purely for organization. **MCP servers** are full local projects (not single files) and live under `mcp/`; each has its own README, build step, and `claude mcp add` registration.
+Standalone skills sit at the repo root. **Bundles** — groups of related skills designed to work together — live in their own subfolder. **External plugins** — multi-directory packages with their own install scripts — are documented here as reference docs rather than vendored in. Each skill is stored as a single `.md` here for easy browsing, but installs as `~/.claude/skills/<name>/SKILL.md` — Claude Code's skill-directory convention (flat `.md` files in `~/.claude/skills/` are NOT discovered). Bundle folders are purely for repo organization. **MCP servers** are full local projects (not single files) and live under `mcp/`; each has its own README, build step, and `claude mcp add` registration.
 
 ```
 .
@@ -44,56 +44,56 @@ Unlike skills, these are full local projects Claude Code connects to over MCP. E
 
 | Server | Source | What it does |
 |---|---|---|
-| [`gmail-organizer-mcp`](mcp/gmail-organizer-mcp/) | Built | Lets Claude Code read and organize **multiple Gmail accounts** — Claude's built-in Gmail connector is single-account only. Account-aware tools for search, label, archive, mark-read, and server-side filters across every connected inbox (`account:"all"` fans out). Read + organize only — **no delete**. OAuth refresh tokens live in Bitwarden, never on disk. TypeScript, stdio, [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk). Full setup in its [README](mcp/gmail-organizer-mcp/README.md). |
+| [`gmail-organizer-mcp`](mcp/gmail-organizer-mcp/) | Built | Lets Claude Code read and organize **multiple Gmail accounts** — Claude's built-in Gmail connector is single-account only. Account-aware tools for search, label, archive, mark-read, and server-side filters across every connected inbox (`account:"all"` fans out). Read + organize only — **no permanent mail delete** (labels/filters can be deleted, messages never). OAuth refresh tokens live in Bitwarden, never on disk. TypeScript, stdio, [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk). Full setup in its [README](mcp/gmail-organizer-mcp/README.md). |
 
 ## Install
 
-Skills live in `~/.claude/skills/`. Claude Code picks them up automatically — no restart needed.
+Each skill installs as a directory: `~/.claude/skills/<name>/SKILL.md`. Claude Code picks them up automatically — no restart needed. (Legacy flat files still work as slash commands, but only in `~/.claude/commands/<name>.md` — a flat `.md` dropped into `~/.claude/skills/` is silently ignored.)
 
 ### Install everything
-
-Flattens all skills (root + bundles) into `~/.claude/skills/`, skipping the README and the reference guide:
 
 ```bash
 git clone https://github.com/pravinemani5545/skills-and-mcp.git
 cd skills-and-mcp
-mkdir -p ~/.claude/skills
-find . -name "*.md" \
-  -not -name "README.md" \
-  -not -name "claude-skills-guide.md" \
-  -not -name "claude-seo.md" \
-  -exec cp {} ~/.claude/skills/ \;
+for f in *.md cpr/*.md; do
+  case "$(basename "$f")" in README.md|claude-skills-guide.md|claude-seo.md) continue;; esac
+  name="$(basename "$f" .md)"
+  mkdir -p ~/.claude/skills/"$name"
+  cp "$f" ~/.claude/skills/"$name"/SKILL.md
+done
 ```
 
 ### Install a single bundle
 
 ```bash
-cp cpr/*.md ~/.claude/skills/
+for f in cpr/*.md; do
+  name="$(basename "$f" .md)"
+  mkdir -p ~/.claude/skills/"$name"
+  cp "$f" ~/.claude/skills/"$name"/SKILL.md
+done
 ```
+
+(The cpr files also work as legacy slash commands in `~/.claude/commands/` — that's where they live on my machine.)
 
 ### Install one skill
 
 ```bash
-# standalone
-curl -o ~/.claude/skills/artifact.md \
+mkdir -p ~/.claude/skills/artifact
+curl -o ~/.claude/skills/artifact/SKILL.md \
   https://raw.githubusercontent.com/pravinemani5545/skills-and-mcp/main/artifact.md
-
-# from a bundle
-curl -o ~/.claude/skills/compress.md \
-  https://raw.githubusercontent.com/pravinemani5545/skills-and-mcp/main/cpr/compress.md
 ```
 
 ### Symlink instead (recommended for active development)
 
-If you want edits in this repo to take effect immediately, symlink instead of copy:
+Edits in this repo take effect immediately:
 
 ```bash
-mkdir -p ~/.claude/skills
-find . -name "*.md" \
-  -not -name "README.md" \
-  -not -name "claude-skills-guide.md" \
-  -not -name "claude-seo.md" \
-  -exec sh -c 'ln -sf "$(pwd)/$1" ~/.claude/skills/"$(basename "$1")"' _ {} \;
+for f in *.md cpr/*.md; do
+  case "$(basename "$f")" in README.md|claude-skills-guide.md|claude-seo.md) continue;; esac
+  name="$(basename "$f" .md)"
+  mkdir -p ~/.claude/skills/"$name"
+  ln -sf "$(pwd)/$f" ~/.claude/skills/"$name"/SKILL.md
+done
 ```
 
 ### Install an external plugin (claude-seo)
@@ -130,14 +130,14 @@ Once installed, invoke a skill with a slash command:
 You can also chain skills in one prompt — the first loads its context, then the next runs:
 
 ```
-/frontend-design /artifact pricing page for a SaaS tool
+/design-system /artifact pricing page for a SaaS tool
 ```
 
 Plain-language requests work too — skills auto-trigger based on intent (e.g. saying "build me an artifact of X" fires `/artifact`).
 
 ## Skill format
 
-Each `.md` file is a self-contained skill. Frontmatter declares the metadata; the body is the instructions Claude follows when invoked.
+Each `.md` file here is a self-contained skill, stored flat for browsing and installed as `<name>/SKILL.md`. Frontmatter declares the metadata; the body is the instructions Claude follows when invoked.
 
 ```markdown
 ---
