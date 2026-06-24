@@ -21,6 +21,9 @@ Standalone skills sit at the repo root. **Bundles** — groups of related skills
 ├── youtube-study/           # standalone skill (directory — ships a helper script)
 │   ├── SKILL.md
 │   └── scripts/clean_transcript.py
+├── project-audit/           # standalone skill (directory — ships reference docs)
+│   ├── SKILL.md
+│   └── references/          # finder-dimensions, verification, fix-protocol, workflow-template
 └── mcp/                     # MCP servers (local projects, own install)
     └── gmail-organizer-mcp/ # multi-account Gmail organizer
 ```
@@ -34,6 +37,7 @@ Standalone skills sit at the repo root. **Bundles** — groups of related skills
 | [`design-system`](design-system.md) | — | Built | Playwright MCP (verification step) | Project-agnostic design-system application. Runs a guided interview (accent color, vibe, theme, motion intensity, exclusions), pauses for confirmation, then applies patterns to any site — builds new pages or retrofits existing ones, distributing glow colors algorithmically, applying chrome patterns, doing a voice pass on copy. Companion reference: `~/Desktop/Terminal-DS-Implementation-Guide.md`. |
 | [`youtube-study`](youtube-study/SKILL.md) | — | Built | `yt-dlp` + `ffmpeg` (Homebrew); optional `mlx-whisper` (pipx) + `GEMINI_API_KEY` for fallback tiers | Studies a YouTube video from its URL: pulls captions, metadata, chapters, and top comments via yt-dlp (local/residential IP — no MCP scrapers), dedupes rolling auto-captions into a compact timestamped transcript (~4x token savings), falls back to local Whisper when no captions exist and to Gemini's URL-based video API for visual questions. Caches per video in `~/.cache/youtube-study/`. |
 | [`mimic-design`](mimic-design.md) | — | Built | **Playwright MCP** | Reverse-engineers a reference site's design from a URL: Playwright capture (desktop/mobile/scroll/hover states), CSSOM token extraction (palette, typography, easings, keyframes — with a curl fallback for CORS-blocked stylesheets), an honest design read, then a numbered steal/adapt/skip/do-better menu. Implements only the items the user picks — never edits files before the menu reply. |
+| [`project-audit`](project-audit/SKILL.md) | — | Built | None (works on any stack; uses the Workflow/Agent tools) | Exhaustive multi-agent bug audit of a whole system: fans out parallel finder agents across many bug dimensions, **adversarially verifies every finding** to kill false positives, ranks by blast radius, then (if asked) fixes in small verified+deployed batches and syncs docs. Built from hardening this voice/SMS lead pipeline — where it caught a live bug silently disqualifying 94% of leads. |
 | [`compress`](cpr/compress.md) | [`cpr`](cpr/) | External — [EliaAlberti/cpr](https://github.com/EliaAlberti/cpr-compress-preserve-resume) | None | Prepares preservation notes before `/compact` and saves the full session to searchable logs. |
 | [`preserve`](cpr/preserve.md) | [`cpr`](cpr/) | External — [EliaAlberti/cpr](https://github.com/EliaAlberti/cpr-compress-preserve-resume) | None | Extracts the durable lessons from a session and writes them to `CLAUDE.md` so future conversations inherit them. |
 | [`resume`](cpr/resume.md) | [`cpr`](cpr/) | External — [EliaAlberti/cpr](https://github.com/EliaAlberti/cpr-compress-preserve-resume) | None | Loads context at the start of a session from `CLAUDE.md` + recent session logs. |
@@ -67,6 +71,7 @@ for f in *.md cpr/*.md; do
 done
 # directory skills copy as-is:
 cp -R youtube-study ~/.claude/skills/
+cp -R project-audit ~/.claude/skills/
 ```
 
 ### Install a single bundle
