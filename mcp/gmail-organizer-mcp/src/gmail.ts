@@ -3,7 +3,7 @@
  * desktop app creds + the account's stored refresh token.
  *
  * Scopes used: gmail.modify (read/label/archive), gmail.labels, gmail.settings.basic.
- * No delete: there is intentionally no trash/delete method here.
+ * No permanent delete: trash/untrash below are recoverable and not exposed as tools.
  */
 import { google, gmail_v1 } from "googleapis";
 import type { AccountRecord, OAuthApp } from "./tokens.js";

@@ -7,14 +7,30 @@
  *   - One secure-note item per account "Gmail Token: <email>" holding:
  *     { email, alias?, refresh_token, scope }.
  *
- * Requires an unlocked vault. Pass the session via BW_SESSION in the env
- * (`export BW_SESSION=$(bw unlock --raw)`), or set BW_PASSWORD for unattended
- * unlock (used by the scheduled routine).
+ * Requires an unlocked vault. The session comes from a `BW_SESSION=` line in
+ * ~/.env (re-read on every call, so a vault unlocked after the server started is
+ * picked up without a restart), else BW_SESSION in the env, else BW_PASSWORD for
+ * unattended unlock (used by the scheduled routine).
  */
 import { execFile, spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
+
+/** Last `BW_SESSION=` in ~/.env (the unlock flow appends to it), else the process env. */
+function currentSession(): string | undefined {
+  try {
+    const env = readFileSync(join(homedir(), ".env"), "utf8");
+    const matches = [...env.matchAll(/^\s*(?:export\s+)?BW_SESSION=["']?([^"'\s]+)/gm)];
+    if (matches.length) return matches[matches.length - 1][1];
+  } catch {
+    // no ~/.env — fall through to the process env
+  }
+  return process.env.BW_SESSION;
+}
 
 /** Spawn a command, optionally writing `input` to stdin, resolving with stdout. */
 function run(
@@ -56,7 +72,7 @@ export interface AccountRecord {
 export class VaultLockedError extends Error {
   constructor(detail?: string) {
     super(
-      "Bitwarden vault is locked or no session is available. Run `export BW_SESSION=$(bw unlock --raw)` and restart the server." +
+      "Bitwarden vault is locked or no session is available. Run `echo \"export BW_SESSION=$(bw unlock --raw)\" >> ~/.env` in a terminal, then retry." +
         (detail ? `\nbw said: ${detail}` : ""),
     );
     this.name = "VaultLockedError";
@@ -76,12 +92,11 @@ function bwEnv(): NodeJS.ProcessEnv {
 
 /** Run a `bw` subcommand, returning stdout. Detects a locked/sessionless vault. */
 async function bw(args: string[], input?: string): Promise<string> {
-  if (!process.env.BW_SESSION && !process.env.BW_PASSWORD) {
+  const session = currentSession();
+  if (!session && !process.env.BW_PASSWORD) {
     throw new VaultLockedError();
   }
-  const sessionArgs = process.env.BW_SESSION
-    ? ["--session", process.env.BW_SESSION]
-    : [];
+  const sessionArgs = session ? ["--session", session] : [];
   try {
     const { stdout } = await run(
       "bw",
@@ -100,7 +115,7 @@ async function bw(args: string[], input?: string): Promise<string> {
 
 /** Unlock with BW_PASSWORD (unattended path) and populate BW_SESSION in-process. */
 export async function ensureUnlocked(): Promise<void> {
-  if (process.env.BW_SESSION) return;
+  if (currentSession()) return;
   if (!process.env.BW_PASSWORD) throw new VaultLockedError();
   const { stdout } = await execFileAsync(
     "bw",

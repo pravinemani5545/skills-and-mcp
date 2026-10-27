@@ -63,20 +63,22 @@ Bitwarden item `Gmail Token: <email>`.
 ### 4. Register with Claude Code
 
 If you got this code from the `skills-and-mcp` repo (vendored under `mcp/gmail-organizer-mcp/`),
-first copy it to a working location (e.g. `~/Developer/projects/active/gmail-organizer-mcp`),
+first copy it to a working location (e.g. `~/pravinemaniva/projects/gmail-organizer-mcp`),
 run `pnpm install && pnpm build`, then register with the path you chose.
 
 ```bash
 claude mcp add -s user gmail-organizer \
-  -- node ~/Developer/projects/active/gmail-organizer-mcp/dist/server.js
+  -- node ~/pravinemaniva/projects/gmail-organizer-mcp/dist/server.js
 
 claude mcp list   # should show gmail-organizer: connected
 ```
 
-> No `BW_SESSION` needed in the registration: secrets load lazily on the first tool call.
-> While the vault is locked, the server still connects and tools return a "vault locked"
-> error — run `bw unlock` (or use the `BW_PASSWORD` path below) and the next call succeeds,
-> no re-registration or restart required.
+> Don't put `BW_SESSION` in the registration — a hardcoded session goes stale at the next
+> `bw lock`. Secrets load lazily on the first tool call: while the vault is locked the
+> server still connects and tools return a "vault locked" error. Unlock in a terminal with
+> `echo "export BW_SESSION=$(bw unlock --raw)" >> ~/.env` and the next call succeeds — the
+> server re-reads `~/.env` on every vault access, so no restart is needed. Once loaded,
+> tokens stay in memory, so you can `bw lock` and remove that line right after.
 
 ## Usage
 
@@ -116,7 +118,7 @@ password from the environment instead:
 ```bash
 # wrapper sourced from ~/.env (chmod 600), which sets BW_PASSWORD
 export BW_PASSWORD
-node ~/Developer/projects/active/gmail-organizer-mcp/dist/server.js
+node ~/pravinemaniva/projects/gmail-organizer-mcp/dist/server.js
 ```
 
 Prove the interactive flow and `RULES.md` behavior first, then drive a daily triage via
@@ -127,4 +129,4 @@ inboxes per RULES.md and summarize."*
 
 - Adding a new account requires restarting the server (accounts load at startup).
 - Bulk ops use `batchModify` (≤1000 ids/call); Gmail allows ~6000 quota units/min/account.
-- Code lives under `~/Developer` (outside iCloud) by design.
+- Code lives under `~/pravinemaniva/projects` (outside iCloud) by design.
