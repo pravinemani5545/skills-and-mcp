@@ -15,7 +15,7 @@ import { AddressInfo } from "node:net";
 import readline from "node:readline";
 import open from "open";
 import { google } from "googleapis";
-import { SCOPES } from "./gmail.js";
+import { SCOPES } from "./google.js";
 import {
   loadOAuthApp,
   loadAccounts,

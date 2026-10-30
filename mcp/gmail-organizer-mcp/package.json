@@ -1,7 +1,7 @@
 {
   "name": "gmail-organizer-mcp",
-  "version": "1.0.0",
-  "description": "Local MCP server that lets Claude Code read and organize multiple Gmail accounts",
+  "version": "1.1.0",
+  "description": "Local MCP server that lets Claude Code work across multiple Google accounts: Gmail, Drive, Docs, Sheets, Slides and Calendar",
   "type": "module",
   "bin": {
     "gmail-organizer-mcp": "./dist/server.js"

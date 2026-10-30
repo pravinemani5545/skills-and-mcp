@@ -1,22 +1,12 @@
 /**
- * Gmail API helpers. One GmailClient per account, built from the shared OAuth
- * desktop app creds + the account's stored refresh token.
+ * Gmail API helpers. One GmailClient per account, on the account's shared OAuth client.
  *
  * Scopes used: gmail.modify (read/label/archive), gmail.labels, gmail.settings.basic.
  * No permanent delete: trash/untrash below are recoverable and not exposed as tools.
  */
 import { google, gmail_v1 } from "googleapis";
-import type { AccountRecord, OAuthApp } from "./tokens.js";
-
-// Use googleapis' own bundled google-auth-library so OAuth2Client types match
-// what google.gmail() expects (avoids dual-version private-field clashes).
-type OAuth2Client = InstanceType<typeof google.auth.OAuth2>;
-
-export const SCOPES = [
-  "https://www.googleapis.com/auth/gmail.modify",
-  "https://www.googleapis.com/auth/gmail.labels",
-  "https://www.googleapis.com/auth/gmail.settings.basic",
-];
+import type { AccountRecord } from "./tokens.js";
+import { withRetry, mapLimit, type OAuth2Client } from "./google.js";
 
 // Gmail batchModify accepts up to 1000 ids per call.
 const BATCH_LIMIT = 1000;
@@ -55,43 +45,6 @@ function extractBody(payload?: gmail_v1.Schema$MessagePart): string {
   return "";
 }
 
-/** Retry transient Gmail errors (429 / 5xx / rate-limit) with exponential backoff. */
-async function withRetry<T>(fn: () => Promise<T>, tries = 4): Promise<T> {
-  let delay = 500;
-  for (let attempt = 0; ; attempt++) {
-    try {
-      return await fn();
-    } catch (e: any) {
-      const code = e?.code ?? e?.response?.status;
-      const transient =
-        code === 429 ||
-        (typeof code === "number" && code >= 500) ||
-        /rateLimit|backendError|userRateLimitExceeded/i.test(e?.message ?? "");
-      if (!transient || attempt >= tries - 1) throw e;
-      await new Promise((r) => setTimeout(r, delay + Math.floor(Math.random() * 250)));
-      delay *= 2;
-    }
-  }
-}
-
-/** Map over items with bounded concurrency (avoids 1000-way request storms). */
-async function mapLimit<A, B>(items: A[], limit: number, fn: (a: A) => Promise<B>): Promise<B[]> {
-  const out: B[] = new Array(items.length);
-  let next = 0;
-  const worker = async () => {
-    while (next < items.length) {
-      const i = next++;
-      out[i] = await fn(items[i]);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) || 1 }, worker));
-  return out;
-}
-
-export function makeOAuthClient(app: OAuthApp, redirectUri?: string): OAuth2Client {
-  return new google.auth.OAuth2(app.client_id, app.client_secret, redirectUri);
-}
-
 export interface MessageSummary {
   id: string;
   threadId: string;
@@ -107,11 +60,9 @@ export class GmailClient {
   readonly alias?: string;
   private api: gmail_v1.Gmail;
 
-  constructor(app: OAuthApp, account: AccountRecord) {
+  constructor(account: AccountRecord, auth: OAuth2Client) {
     this.email = account.email;
     this.alias = account.alias;
-    const auth = makeOAuthClient(app);
-    auth.setCredentials({ refresh_token: account.refresh_token });
     this.api = google.gmail({ version: "v1", auth });
   }
 
@@ -323,21 +274,4 @@ export class GmailClient {
     });
     return res.data.id ?? "(created)";
   }
-}
-
-/** Build clients for the chosen accounts. `account` may be an email, alias, or "all". */
-export function selectAccounts(
-  accounts: AccountRecord[],
-  account: string,
-): AccountRecord[] {
-  if (account === "all") return accounts;
-  const key = account.toLowerCase();
-  const matched = accounts.filter(
-    (a) => a.email.toLowerCase() === key || a.alias?.toLowerCase() === key,
-  );
-  if (matched.length === 0) {
-    const known = accounts.map((a) => a.alias ?? a.email).join(", ") || "(none)";
-    throw new Error(`No account matches "${account}". Connected: ${known}`);
-  }
-  return matched;
 }
