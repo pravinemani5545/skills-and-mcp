@@ -45,6 +45,13 @@ function extractBody(payload?: gmail_v1.Schema$MessagePart): string {
   return "";
 }
 
+export interface UnsubscribeResult {
+  sender: string;
+  status: string;
+  /** A web-only unsubscribe page, from the sender's own header: reported, never opened. */
+  link?: string;
+}
+
 export interface MessageSummary {
   id: string;
   threadId: string;
@@ -88,7 +95,8 @@ export class GmailClient {
   /** Search returning human-readable summaries (From/Subject/Date/snippet/labels). */
   async search(query: string, max = 25): Promise<MessageSummary[]> {
     const ids = await this.queryIds(query, max);
-    const summaries = await mapLimit(ids, 15, async (id) => {
+    // 5 at a time keeps a large search under Gmail's per-user rate limit.
+    const summaries = await mapLimit(ids, 5, async (id) => {
         const res = await withRetry(() =>
           this.api.users.messages.get({
             userId: "me",
@@ -273,5 +281,74 @@ export class GmailClient {
       requestBody: { criteria, action: { addLabelIds, removeLabelIds } },
     });
     return res.data.id ?? "(created)";
+  }
+
+  /**
+   * Unsubscribe via the List-Unsubscribe header on the sender's recent mail: a one-click
+   * POST (RFC 8058) when offered, else an unsubscribe email from this account. A header
+   * that only has a web page is returned for the user to open; it's never followed.
+   */
+  async unsubscribe(sender: string, dryRun: boolean): Promise<UnsubscribeResult> {
+    const ids = await this.queryIds(`from:${sender}`, 3);
+    if (ids.length === 0) return { sender, status: "no mail from this sender" };
+    let header = "";
+    let post = "";
+    for (const id of ids) {
+      const res = await withRetry(() =>
+        this.api.users.messages.get({
+          userId: "me",
+          id,
+          format: "metadata",
+          metadataHeaders: ["List-Unsubscribe", "List-Unsubscribe-Post"],
+        }),
+      );
+      const h = (n: string) =>
+        res.data.payload?.headers?.find((x) => x.name?.toLowerCase() === n.toLowerCase())?.value ?? "";
+      header = h("List-Unsubscribe");
+      post = h("List-Unsubscribe-Post");
+      if (header) break;
+    }
+    const urls = [...header.matchAll(/<([^>]+)>/g)].map((m) => m[1].trim());
+    const https = urls.find((u) => u.startsWith("https://"));
+    const mailto = urls.find((u) => u.toLowerCase().startsWith("mailto:"));
+
+    if (https && /List-Unsubscribe=One-Click/i.test(post)) {
+      if (dryRun) return { sender, status: "would unsubscribe (one-click)" };
+      // Not retried: the sender may have applied a request whose response was lost.
+      const res = await fetch(https, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "List-Unsubscribe=One-Click",
+        signal: AbortSignal.timeout(20_000),
+      });
+      return {
+        sender,
+        status: res.ok
+          ? "unsubscribed (one-click)"
+          : `sender rejected the one-click request (HTTP ${res.status}); try Gmail's Manage subscriptions`,
+      };
+    }
+    if (mailto) {
+      const u = new URL(mailto);
+      // Header values come from the sender: strip line breaks so they can't inject headers.
+      const clean = (s: string) => s.replace(/[\r\n]+/g, " ").trim();
+      const to = clean(decodeURIComponent(u.pathname));
+      if (!/^[^\s@]+@[^\s@]+$/.test(to)) return { sender, status: `unusable unsubscribe address "${to}"` };
+      if (dryRun) return { sender, status: `would email ${to}` };
+      const raw = [
+        `To: ${to}`,
+        `Subject: ${clean(u.searchParams.get("subject") ?? "unsubscribe")}`,
+        "Content-Type: text/plain; charset=UTF-8",
+        "",
+        u.searchParams.get("body") ?? "unsubscribe",
+      ].join("\r\n");
+      await this.api.users.messages.send({
+        userId: "me",
+        requestBody: { raw: Buffer.from(raw).toString("base64url") },
+      });
+      return { sender, status: `unsubscribe email sent to ${to}` };
+    }
+    if (https) return { sender, status: "only offers a web page", link: https };
+    return { sender, status: "no unsubscribe header; use Gmail's Manage subscriptions or a filter" };
   }
 }

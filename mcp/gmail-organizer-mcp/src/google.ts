@@ -37,10 +37,11 @@ export function requireScope(account: AccountRecord, scope: string, service: str
   }
 }
 
-/** Retry transient errors (429 / 5xx / rate-limit) with exponential backoff.
+/** Retry transient errors (429 / 5xx / rate-limit / quota) with exponential backoff, up to
+ *  ~30 s of waiting so per-minute quotas can recover.
  *  Only for calls that are safe to repeat: a retried create or append could apply twice. */
-export async function withRetry<T>(fn: () => Promise<T>, tries = 4): Promise<T> {
-  let delay = 500;
+export async function withRetry<T>(fn: () => Promise<T>, tries = 6): Promise<T> {
+  let delay = 1000;
   for (let attempt = 0; ; attempt++) {
     try {
       return await fn();
@@ -49,10 +50,10 @@ export async function withRetry<T>(fn: () => Promise<T>, tries = 4): Promise<T> 
       const transient =
         code === 429 ||
         (typeof code === "number" && code >= 500) ||
-        /rate ?limit|backendError/i.test(e?.message ?? "");
+        /rate ?limit|backendError|quota exceeded/i.test(e?.message ?? "");
       if (!transient || attempt >= tries - 1) throw e;
       await new Promise((r) => setTimeout(r, delay + Math.floor(Math.random() * 250)));
-      delay *= 2;
+      delay = Math.min(delay * 2, 16_000);
     }
   }
 }

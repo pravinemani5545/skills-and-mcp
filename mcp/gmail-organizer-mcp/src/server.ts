@@ -467,6 +467,39 @@ tool(
   },
 );
 
+tool(
+  "unsubscribe",
+  {
+    description:
+      "Unsubscribe from mailing lists using each sender's List-Unsubscribe header: a one-click request (RFC 8058), or an unsubscribe email sent from the account. A sender that only offers a web page is reported with its link, never opened. Confirm the sender list with the user before running; dry_run shows what would happen without acting.",
+    inputSchema: {
+      account: accountArg,
+      senders: z.array(z.string()).min(1).max(50).describe("Sender email addresses."),
+      dry_run: z.boolean().default(false),
+    },
+  },
+  async ({ account, senders, dry_run }) => {
+    try {
+      return text(
+        await fanOut(account, async (a) => {
+          const lines: string[] = [];
+          for (const sender of senders) {
+            try {
+              const r = await clientFor(a).unsubscribe(sender.trim().toLowerCase(), dry_run);
+              lines.push(`- ${r.sender}: ${r.status}${r.link ? `\n  link from the sender's email: ${r.link}` : ""}`);
+            } catch (e) {
+              lines.push(`- ${sender}: error: ${e instanceof Error ? e.message : String(e)}`);
+            }
+          }
+          return `### ${a.email}${dry_run ? " (dry run)" : ""}\n${lines.join("\n")}`;
+        }),
+      );
+    } catch (e) {
+      return errorResult(e);
+    }
+  },
+);
+
 /** Run `fn` per selected account; one account's failure is reported without hiding the others. */
 async function fanOut(account: string, fn: (a: AccountRecord) => Promise<string>): Promise<string> {
   const blocks = await Promise.all(

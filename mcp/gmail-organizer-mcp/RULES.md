@@ -14,7 +14,7 @@ labels (`Parent/Child`) for hierarchy.
 | `Triage/Action` | Needs a reply or a task from me. Keep in inbox. |
 | `Triage/Waiting` | I'm blocked on someone else. Keep in inbox, revisit. |
 | `Triage/FYI` | Read-only, no action. Archive after labeling. |
-| `Receipts` | Order confirmations, invoices, payment receipts. Archive. |
+| `Finance` | Banking, investing, invoices and payment receipts. Archive. |
 | `Newsletters` | Subscriptions, digests, marketing. Archive. |
 | `Clients/<name>` | Per-client consulting threads. Keep recent in inbox. |
 | `Notifications` | Automated app/system notifications. Archive. |
@@ -25,13 +25,15 @@ For sorting a whole mailbox into broad lists fast, apply these labels by query
 (`apply_label` with `query:`, no per-message reading needed). Labels are additive —
 a message can land in more than one list. Non-destructive: labeling only.
 
+Keep the label set small. Don't create labels that duplicate Gmail's own inbox tabs
+(Promotions, Social, Updates): search those with `category:promotions`,
+`category:social` and `category:updates` instead. `Subscriptions`, `Social`, `Updates`
+and `Billing` were removed for that reason on 2026-10-30, with `Billing` merged into
+`Finance`.
+
 | List | Query |
 |---|---|
-| `Subscriptions` | `category:promotions` |
-| `Billing` | `subject:(receipt OR invoice OR payment OR "order confirmation" OR billing OR renewal OR refund) OR from:(stripe OR paypal OR billing OR invoice OR receipts)` |
-| `Finance` | `from:(interactivebrokers OR wealthsimple OR coinbase OR robinhood OR fidelity OR chase OR rbc OR td OR amex OR "capital one" OR scotiabank)` |
-| `Social` | `category:social` |
-| `Updates` | `category:updates` |
+| `Finance` | `from:(interactivebrokers OR wealthsimple OR coinbase OR robinhood OR fidelity OR chase OR rbc OR td OR amex OR "capital one" OR scotiabank OR stripe OR paypal) OR subject:(receipt OR invoice OR payment OR billing OR renewal OR refund)` |
 | `Shopping` | `from:(amazon OR ebay OR shopify OR aliexpress OR etsy OR walmart) OR subject:(shipped OR "your order" OR delivery OR "tracking number")` |
 | `Travel` | `subject:(flight OR booking OR reservation OR itinerary OR hotel) OR from:(booking.com OR airbnb OR expedia OR aircanada OR uber OR lyft)` |
 | `Jobs` | `from:(linkedin OR indeed OR glassdoor OR ziprecruiter) OR subject:(hiring OR "job alert" OR "your application")` |
@@ -43,7 +45,7 @@ For each account (or `account:"all"`):
 1. `search` `is:unread newer_than:2d` (or a wider window on first run).
 2. Classify each message into exactly one taxonomy label using sender + subject + snippet.
 3. `apply_label` the chosen label.
-4. `archive` everything labeled `Triage/FYI`, `Receipts`, `Newsletters`, `Notifications`.
+4. `archive` everything labeled `Triage/FYI`, `Finance`, `Newsletters`, `Notifications`.
 5. Leave `Triage/Action` and `Triage/Waiting` in the inbox.
 6. Output a one-line-per-account summary: counts per label + anything ambiguous left untouched.
 
@@ -51,7 +53,7 @@ For each account (or `account:"all"`):
 
 - **Newsletters**: `category:promotions`, `list-unsubscribe` present, known senders
   (Substack, Mailchimp, etc.).
-- **Receipts**: subjects with "receipt", "invoice", "order #", "your payment",
+- **Finance**: subjects with "receipt", "invoice", "order #", "your payment",
   senders like `noreply@`, Stripe, Shopify, Apple.
 - **Notifications**: GitHub, Vercel, Supabase, calendar invites already actioned, CI.
 - **Clients/<name>**: map known client domains → label. Maintain the mapping below.

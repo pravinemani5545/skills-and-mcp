@@ -121,6 +121,7 @@ keeps working for Gmail, and its Drive/Calendar tools tell you to re-run `add` f
 | `create_filter` | Server-side rule for future mail (label / archive / both) |
 | `list_filters` / `delete_filter` | Inspect and remove server-side filters |
 | `delete_label` | Remove a user label (messages kept; refuses system labels) |
+| `unsubscribe` | Unsubscribe from senders via their List-Unsubscribe header: one-click (RFC 8058) or an unsubscribe email from the account. Web-page-only senders are reported with their link, never opened. `dry_run` to preview (`account:"all"` fans out) |
 | `drive_search` | Full-text and/or Drive-query search (`account:"all"` fans out) |
 | `drive_read` | A file as text: Docs as Markdown, Slides as text, plain files as-is; Sheets list their tabs (fenced as untrusted) |
 | `drive_create` | New Doc (from Markdown), Sheet (from CSV), Slides deck, folder or text file |
@@ -153,5 +154,9 @@ first.
 
 - Accounts load on the server's first successful tool call; after adding one, reconnect with
   `/mcp` or start a new session.
-- Bulk ops use `batchModify` (≤1000 ids/call); Gmail allows ~6000 quota units/min/account.
+- Bulk ops use `batchModify` (≤1000 ids/call). Gmail caps API cost per account per minute:
+  a `search` over 500 messages (5 units each to read headers) can exceed it and fail with
+  "Quota exceeded … Units per minute per user". Searches fetch 5 messages at a time and
+  back off for up to ~30 s, but for a large sweep, split it by date (`after:`/`before:`)
+  into chunks of ~150.
 - Code lives under `~/pravinemaniva/projects` (outside iCloud) by design.
