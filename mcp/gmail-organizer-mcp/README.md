@@ -48,17 +48,18 @@ rm /tmp/oauth.json && bw sync
 
 ```bash
 pnpm install && pnpm build
-export BW_SESSION=$(bw unlock --raw)
 
-pnpm auth you@gmail.com --alias personal
-pnpm auth work@yourbiz.com --alias work
-# ... once per account. Re-run anytime to re-authorize.
+scripts/gmail-accounts.sh add you@gmail.com personal
+scripts/gmail-accounts.sh add work@yourbiz.com work
+# ... once per account.
 
-pnpm auth --list   # confirm connected accounts
+scripts/gmail-accounts.sh list   # confirm connected accounts
 ```
 
-Each run opens a browser, you pick the account + approve, and the refresh token lands in a
-Bitwarden item `Gmail Token: <email>`.
+Each `add` asks for your master password if the vault is locked, opens a browser where you
+pick the account and approve, stores the refresh token in a Bitwarden item
+`Gmail Token: <email>`, then locks the vault again. `pnpm auth <email> --alias <name>` is the
+underlying command if you'd rather manage the Bitwarden session yourself.
 
 ### 4. Register with Claude Code
 
@@ -75,14 +76,29 @@ claude mcp list   # should show gmail-organizer: connected
 
 > Don't put `BW_SESSION` in the registration — a hardcoded session goes stale at the next
 > `bw lock`. Secrets load lazily on the first tool call: while the vault is locked the
-> server still connects and tools return a "vault locked" error. Unlock in a terminal with
-> `echo "export BW_SESSION=$(bw unlock --raw)" >> ~/.env` and the next call succeeds — the
-> server re-reads `~/.env` on every vault access, so no restart is needed. Once loaded,
-> tokens stay in memory, so you can `bw lock` and remove that line right after.
+> server still connects and tools return a "vault locked" error. Run
+> `scripts/gmail-accounts.sh on` in a terminal and the next call succeeds — the server
+> re-reads `~/.env` on every vault access, so no restart is needed.
+
+### 5. Shell aliases (optional)
+
+```bash
+# ~/.zshrc
+alias gmail-accounts="$HOME/pravinemaniva/projects/gmail-organizer-mcp/scripts/gmail-accounts.sh"
+alias gmail-on="$HOME/pravinemaniva/projects/gmail-organizer-mcp/scripts/gmail-accounts.sh on"
+alias gmail-off="$HOME/pravinemaniva/projects/gmail-organizer-mcp/scripts/gmail-accounts.sh off"
+```
 
 ## Usage
 
-In any Claude Code session:
+Each Claude Code session starts its own server with no secrets loaded, so once per session:
+
+1. `gmail-on` in a terminal (asks for the master password).
+2. Make your first Gmail request in Claude.
+3. `gmail-off` once it answers. The server keeps its tokens in memory for the rest of the
+   session.
+
+Then, in that session:
 
 - "List my Gmail accounts."
 - "Search account `all` for unread newsletters from the last week."
@@ -90,6 +106,21 @@ In any Claude Code session:
 - "Create a filter on `personal` that archives and labels mail from `news@substack.com` as Newsletters."
 
 Organizing policy (label taxonomy, what gets archived) lives in [`RULES.md`](./RULES.md).
+
+## Managing accounts
+
+| Command | What it does |
+|---|---|
+| `gmail-accounts list` | Show connected accounts |
+| `gmail-accounts add <email> [alias]` | Add an account, or re-authorize one whose token expired. Keeps the account's alias if you leave it out; refuses an alias another account already uses. |
+| `gmail-accounts on` | Unlock Bitwarden for Claude: writes `BW_SESSION` to `~/.env` |
+| `gmail-accounts off` | Lock Bitwarden and remove `BW_SESSION` from `~/.env` |
+
+`list` and `add` unlock only for their own run and lock again when they finish (unless the
+vault was already unlocked); their session never touches `~/.env`. Run all of these in a
+real terminal: the password prompt needs a TTY. After adding an account, reconnect
+`gmail-organizer` with `/mcp` or start a new session. Google drops a refresh token after
+about 6 months unused or a password change on that account; re-run `add` for it.
 
 ## Tools
 
@@ -127,6 +158,7 @@ inboxes per RULES.md and summarize."*
 
 ## Notes / limits
 
-- Adding a new account requires restarting the server (accounts load at startup).
+- Accounts load on the server's first successful tool call; after adding one, reconnect with
+  `/mcp` or start a new session.
 - Bulk ops use `batchModify` (≤1000 ids/call); Gmail allows ~6000 quota units/min/account.
 - Code lives under `~/pravinemaniva/projects` (outside iCloud) by design.

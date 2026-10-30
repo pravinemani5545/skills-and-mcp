@@ -72,7 +72,7 @@ export interface AccountRecord {
 export class VaultLockedError extends Error {
   constructor(detail?: string) {
     super(
-      "Bitwarden vault is locked or no session is available. Run `echo \"export BW_SESSION=$(bw unlock --raw)\" >> ~/.env` in a terminal, then retry." +
+      "Bitwarden vault is locked or no session is available. Run `gmail-accounts on` (scripts/gmail-accounts.sh on) in a terminal, then retry." +
         (detail ? `\nbw said: ${detail}` : ""),
     );
     this.name = "VaultLockedError";

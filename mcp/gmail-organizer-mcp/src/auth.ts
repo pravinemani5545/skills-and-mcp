@@ -34,6 +34,19 @@ async function list() {
 
 async function authorize(email: string, alias?: string) {
   const app = await loadOAuthApp();
+  const accounts = await loadAccounts();
+
+  // selectAccounts treats a shared alias as ambiguous, so refuse it up front.
+  const clash = alias
+    ? accounts.find(
+        (a) =>
+          a.alias?.toLowerCase() === alias.toLowerCase() &&
+          a.email.toLowerCase() !== email.toLowerCase(),
+      )
+    : undefined;
+  if (clash) {
+    throw new Error(`Alias "${alias}" is already used by ${clash.email}. Pick another alias.`);
+  }
 
   // Temporary loopback server to receive the OAuth redirect.
   const server = http.createServer();
@@ -98,14 +111,18 @@ async function authorize(email: string, alias?: string) {
   const profile = await gmail.users.getProfile({ userId: "me" });
   const canonicalEmail = profile.data.emailAddress ?? email;
 
+  // Re-authorizing without --alias keeps the account's existing alias.
+  const keptAlias =
+    alias ?? accounts.find((a) => a.email.toLowerCase() === canonicalEmail.toLowerCase())?.alias;
+
   await saveAccount({
     email: canonicalEmail,
-    alias,
+    alias: keptAlias,
     refresh_token: tokens.refresh_token,
     scope: tokens.scope ?? SCOPES.join(" "),
   });
 
-  console.log(`\nStored refresh token for ${canonicalEmail} in Bitwarden${alias ? ` (alias: ${alias})` : ""}.`);
+  console.log(`\nStored refresh token for ${canonicalEmail} in Bitwarden${keptAlias ? ` (alias: ${keptAlias})` : ""}.`);
 }
 
 async function main() {
