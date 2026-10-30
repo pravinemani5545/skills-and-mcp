@@ -1,15 +1,18 @@
 /**
- * Per-account OAuth CLI.
+ * Account management CLI (wrapped by scripts/gmail-accounts.sh).
  *
- *   pnpm auth <email> [--alias work]   authorize/refresh one account
- *   pnpm auth --list                   show connected accounts
+ *   list                   show connected accounts
+ *   add <email> [alias]    authorize an account, or re-authorize an expired one
+ *   remove <email|alias>   forget an account
+ *   client                 store the OAuth client (client ID and secret as two lines on stdin)
  *
- * Runs a loopback PKCE flow: spins a temporary local server, opens the browser
- * with login_hint, captures the code, exchanges for a refresh token, and stores
- * it in Bitwarden. Re-runnable to re-authorize.
+ * `add` runs a loopback PKCE flow: spins a temporary local server, opens the browser
+ * with login_hint, captures the code, exchanges it for a refresh token, and stores it
+ * in the macOS Keychain.
  */
 import http from "node:http";
 import { AddressInfo } from "node:net";
+import readline from "node:readline";
 import open from "open";
 import { google } from "googleapis";
 import { SCOPES } from "./gmail.js";
@@ -17,13 +20,16 @@ import {
   loadOAuthApp,
   loadAccounts,
   saveAccount,
-  ensureUnlocked,
+  saveOAuthApp,
+  removeAccount,
 } from "./tokens.js";
+
+const USAGE = "Usage: gmail-accounts list | add <email> [alias] | remove <email|alias> | client";
 
 async function list() {
   const accounts = await loadAccounts();
   if (accounts.length === 0) {
-    console.log("No accounts connected yet. Run: pnpm auth <email>");
+    console.log("No accounts connected yet. Run: gmail-accounts add <email> [alias]");
     return;
   }
   console.log("Connected accounts:");
@@ -122,25 +128,43 @@ async function authorize(email: string, alias?: string) {
     scope: tokens.scope ?? SCOPES.join(" "),
   });
 
-  console.log(`\nStored refresh token for ${canonicalEmail} in Bitwarden${keptAlias ? ` (alias: ${keptAlias})` : ""}.`);
+  console.log(`\nStored refresh token for ${canonicalEmail} in the Keychain${keptAlias ? ` (alias: ${keptAlias})` : ""}.`);
+  console.log("Reconnect gmail-organizer in Claude Code with /mcp to load it.");
+}
+
+async function remove(emailOrAlias: string) {
+  const removed = await removeAccount(emailOrAlias);
+  console.log(`Removed ${removed.email}. Reconnect gmail-organizer in Claude Code with /mcp to drop it.`);
+  console.log("To also revoke its Google access: https://myaccount.google.com/permissions");
+}
+
+async function setClient() {
+  const lines: string[] = [];
+  for await (const line of readline.createInterface({ input: process.stdin })) lines.push(line.trim());
+  const [client_id, client_secret] = lines;
+  if (!client_id?.endsWith(".apps.googleusercontent.com") || !client_secret) {
+    throw new Error("Expected a client ID (…apps.googleusercontent.com) and a client secret.");
+  }
+  await saveOAuthApp({ client_id, client_secret });
+  console.log("Stored the OAuth client in the Keychain.");
 }
 
 async function main() {
-  const args = process.argv.slice(2);
-  await ensureUnlocked().catch(() => {}); // ok if BW_SESSION already set
-
-  if (args.includes("--list")) {
-    await list();
-    return;
+  const [cmd, ...args] = process.argv.slice(2);
+  switch (cmd) {
+    case "list":
+      return list();
+    case "add":
+      if (!args[0]?.includes("@")) break;
+      return authorize(args[0], args[1]);
+    case "remove":
+      if (!args[0]) break;
+      return remove(args[0]);
+    case "client":
+      return setClient();
   }
-  const email = args.find((a) => !a.startsWith("--"));
-  if (!email) {
-    console.error("Usage: pnpm auth <email> [--alias <name>]   |   pnpm auth --list");
-    process.exit(1);
-  }
-  const aliasIdx = args.indexOf("--alias");
-  const alias = aliasIdx >= 0 ? args[aliasIdx + 1] : undefined;
-  await authorize(email, alias);
+  console.error(USAGE);
+  process.exit(1);
 }
 
 main().catch((err) => {

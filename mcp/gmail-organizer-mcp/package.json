@@ -8,9 +8,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "auth": "tsx src/auth.ts",
-    "server": "tsx src/server.ts",
-    "list": "tsx src/auth.ts --list"
+    "accounts": "tsx src/auth.ts",
+    "server": "tsx src/server.ts"
   },
   "keywords": [
     "mcp",

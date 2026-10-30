@@ -3,13 +3,13 @@
  * gmail-organizer-mcp — local MCP server exposing account-aware Gmail tools so
  * Claude Code can read and organize multiple Gmail accounts.
  *
- * Secrets load lazily from Bitwarden on the first tool call, so the server
- * connects even while the vault is locked. No permanent mail deletes.
+ * Secrets load lazily from the macOS Keychain on the first tool call, so the server
+ * connects even before any account is set up. No permanent mail deletes.
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { loadOAuthApp, loadAccounts, ensureUnlocked } from "./tokens.js";
+import { loadOAuthApp, loadAccounts } from "./tokens.js";
 import type { AccountRecord, OAuthApp } from "./tokens.js";
 import { GmailClient, selectAccounts } from "./gmail.js";
 
@@ -29,16 +29,15 @@ function clientFor(account: AccountRecord): GmailClient {
 }
 
 let loaded: Promise<void> | null = null;
-/** Memoized lazy secret load. Lets the server connect while the vault is locked;
- *  a locked vault surfaces as a per-call error and is retried on the next call. */
+/** Memoized lazy secret load. A missing setup surfaces as a per-call error and is
+ *  retried on the next call. */
 function ensureLoaded(): Promise<void> {
   if (!loaded) {
     loaded = (async () => {
-      await ensureUnlocked().catch(() => {}); // unattended path; ok if BW_SESSION already set
       oauthApp = await loadOAuthApp();
       accounts = await loadAccounts();
     })().catch((err) => {
-      loaded = null; // vault may get unlocked later — retry on next call
+      loaded = null; // setup may be finished later — retry on next call
       throw err;
     });
   }
@@ -104,7 +103,7 @@ tool(
     inputSchema: {},
   },
   async () => {
-    if (accounts.length === 0) return text("No accounts connected. Run `pnpm auth <email>` then restart the server.");
+    if (accounts.length === 0) return text("No accounts connected. Run `gmail-accounts add <email>`, then reconnect the server (/mcp).");
     return text(
       accounts.map((a) => `- ${a.email}${a.alias ? ` (alias: ${a.alias})` : ""}`).join("\n"),
     );
@@ -446,8 +445,8 @@ tool(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  // Warm the secret cache in the background; a locked vault is not fatal here —
-  // it surfaces per tool call and retries once the vault is unlocked.
+  // Warm the secret cache in the background; missing setup is not fatal here —
+  // it surfaces per tool call and retries until it's done.
   ensureLoaded().then(
     () => console.error(`gmail-organizer-mcp ready — ${accounts.length} account(s) loaded.`),
     (err) => console.error(`gmail-organizer-mcp ready — secrets not loaded yet (${err?.message ?? err}); will retry on first tool call.`),

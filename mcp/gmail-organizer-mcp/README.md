@@ -7,7 +7,8 @@ this server holds one OAuth refresh token per account and exposes account-aware 
 
 - **Permissions:** read, label, archive, create filters. **No permanent delete** (scope
   is `gmail.modify` + `gmail.labels` + `gmail.settings.basic`).
-- **Secrets:** stored in Bitwarden, never on disk.
+- **Secrets:** in your macOS login Keychain (service `gmail-organizer`), never in files.
+  The login Keychain unlocks when you log in, so there's no unlock step.
 - **Transport:** stdio, runs locally — nothing is deployed.
 
 ## One-time setup
@@ -26,29 +27,16 @@ this server holds one OAuth refresh token per account and exposes account-aware 
 4. **Credentials → Create credentials → OAuth client ID → Desktop app.** Note the
    `client_id` and `client_secret`. (Desktop, *not* Web — loopback redirect.)
 
-### 2. Store the app creds in Bitwarden
-
-Create a **secure note** named exactly `Gmail Organizer OAuth` whose notes are:
-
-```json
-{ "client_id": "xxxx.apps.googleusercontent.com", "client_secret": "yyyy" }
-```
-
-```bash
-export BW_SESSION=$(bw unlock --raw)
-printf '{"client_id":"...","client_secret":"..."}' > /tmp/oauth.json
-bw get template item | jq \
-  --arg n "Gmail Organizer OAuth" --arg notes "$(cat /tmp/oauth.json)" \
-  '.type=2 | .name=$n | .notes=$notes | .secureNote={"type":0} | .login=null' \
-  | bw encode | bw create item
-rm /tmp/oauth.json && bw sync
-```
-
-### 3. Build & authorize accounts
+### 2. Build and store the OAuth client
 
 ```bash
 pnpm install && pnpm build
+scripts/gmail-accounts.sh client   # prompts for the client ID and secret (secret hidden)
+```
 
+### 3. Authorize accounts
+
+```bash
 scripts/gmail-accounts.sh add you@gmail.com personal
 scripts/gmail-accounts.sh add work@yourbiz.com work
 # ... once per account.
@@ -56,10 +44,8 @@ scripts/gmail-accounts.sh add work@yourbiz.com work
 scripts/gmail-accounts.sh list   # confirm connected accounts
 ```
 
-Each `add` asks for your master password if the vault is locked, opens a browser where you
-pick the account and approve, stores the refresh token in a Bitwarden item
-`Gmail Token: <email>`, then locks the vault again. `pnpm auth <email> --alias <name>` is the
-underlying command if you'd rather manage the Bitwarden session yourself.
+Each `add` opens a browser where you pick the account and approve, then stores its refresh
+token in the Keychain.
 
 ### 4. Register with Claude Code
 
@@ -74,31 +60,19 @@ claude mcp add -s user gmail-organizer \
 claude mcp list   # should show gmail-organizer: connected
 ```
 
-> Don't put `BW_SESSION` in the registration — a hardcoded session goes stale at the next
-> `bw lock`. Secrets load lazily on the first tool call: while the vault is locked the
-> server still connects and tools return a "vault locked" error. Run
-> `scripts/gmail-accounts.sh on` in a terminal and the next call succeeds — the server
-> re-reads `~/.env` on every vault access, so no restart is needed.
+Secrets load lazily on the first tool call, so the server connects even before setup is
+done; until then, its tools return a setup error.
 
-### 5. Shell aliases (optional)
+### 5. Shell alias (optional)
 
 ```bash
 # ~/.zshrc
 alias gmail-accounts="$HOME/pravinemaniva/projects/gmail-organizer-mcp/scripts/gmail-accounts.sh"
-alias gmail-on="$HOME/pravinemaniva/projects/gmail-organizer-mcp/scripts/gmail-accounts.sh on"
-alias gmail-off="$HOME/pravinemaniva/projects/gmail-organizer-mcp/scripts/gmail-accounts.sh off"
 ```
 
 ## Usage
 
-Each Claude Code session starts its own server with no secrets loaded, so once per session:
-
-1. `gmail-on` in a terminal (asks for the master password).
-2. Make your first Gmail request in Claude.
-3. `gmail-off` once it answers. The server keeps its tokens in memory for the rest of the
-   session.
-
-Then, in that session:
+In any Claude Code session, with no unlock step:
 
 - "List my Gmail accounts."
 - "Search account `all` for unread newsletters from the last week."
@@ -113,14 +87,13 @@ Organizing policy (label taxonomy, what gets archived) lives in [`RULES.md`](./R
 |---|---|
 | `gmail-accounts list` | Show connected accounts |
 | `gmail-accounts add <email> [alias]` | Add an account, or re-authorize one whose token expired. Keeps the account's alias if you leave it out; refuses an alias another account already uses. |
-| `gmail-accounts on` | Unlock Bitwarden for Claude: writes `BW_SESSION` to `~/.env` |
-| `gmail-accounts off` | Lock Bitwarden and remove `BW_SESSION` from `~/.env` |
+| `gmail-accounts remove <email\|alias>` | Forget an account. Revoke its Google access separately at [myaccount.google.com/permissions](https://myaccount.google.com/permissions). |
+| `gmail-accounts client` | Store or replace the OAuth client ID and secret |
 
-`list` and `add` unlock only for their own run and lock again when they finish (unless the
-vault was already unlocked); their session never touches `~/.env`. Run all of these in a
-real terminal: the password prompt needs a TTY. After adding an account, reconnect
-`gmail-organizer` with `/mcp` or start a new session. Google drops a refresh token after
-about 6 months unused or a password change on that account; re-run `add` for it.
+After `add` or `remove`, reconnect `gmail-organizer` with `/mcp` or start a new session.
+Google drops a refresh token after about 6 months unused or a password change on that
+account; re-run `add` for it. To inspect the raw items, open Keychain Access and search for
+`gmail-organizer`.
 
 ## Tools
 
@@ -143,18 +116,11 @@ All API calls retry on rate-limit/5xx with backoff; bulk reads use bounded concu
 
 ## Scheduled triage (unattended)
 
-Cron/launchd has no warm `BW_SESSION`. The server (and `auth`) can unlock with a master
-password from the environment instead:
-
-```bash
-# wrapper sourced from ~/.env (chmod 600), which sets BW_PASSWORD
-export BW_PASSWORD
-node ~/pravinemaniva/projects/gmail-organizer-mcp/dist/server.js
-```
-
-Prove the interactive flow and `RULES.md` behavior first, then drive a daily triage via
-Claude Code's `/schedule` (or a launchd plist) pointing at the same prompt: *"Triage all
-inboxes per RULES.md and summarize."*
+The server runs locally, so a scheduled triage has to run on this Mac too: a launchd agent
+that runs Claude Code headless (`claude -p "Triage all inboxes per RULES.md and
+summarize."`). Agents in your login session read the login Keychain like any other process,
+so it works whenever you're logged in. Prove the interactive flow and `RULES.md` behavior
+first.
 
 ## Notes / limits
 
